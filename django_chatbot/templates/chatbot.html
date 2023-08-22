@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block styles %}
+<style>
+    body, html {
+      height: 100%;
+    }
+
+    .messages-box {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .messages-list {
+      padding-left: 0;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      list-style: none;
+    }
+
+    .message-text {
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    .sent {
+      background-color: #dcf8c6;
+      align-self: flex-end;
+    }
+
+    .received {
+      background-color: #f1f0f0;
+      align-self: flex-start;
+    }
+
+    .message-form {
+      display: flex;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px;
+      background-color: #f8f9fa;
+    }
+
+    .message-input {
+      flex: 1;
+      border-radius: 0;
+      border-right: none;
+    }
+
+    .btn-send {
+      border-radius: 0;
+    }
+
+    .chat-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+  </style>
+{% endblock %}
+
+
+{% block content %}
+<div class="chat-container">
+  <div class="card flex-grow-1">
+    <div class="card-header bg-primary text-white">Chat</div>
+    {% if user.is_authenticated %} <!-- If user is authenticated will display welcome message -->
+    <div class="card-header bg-primary text-white"><b>Welcome, {{user.username}}</b>   <a style="color: yellow;" href="logout">Logout</a></div>
+    {% else %} <!-- If user is not authenticated will display login/logout buttons -->
+    <div class="card-header bg-primary text-white"><a style="color: yellow" href="login">Login</a>   <a style="color: yellow;" href="register">Register</a></div>
+    {% endif %}
+    <div class="card-body messages-box">
+      
+      <ul class="list-unstyled messages-list">
+        
+        <!-- <li class="message received">
+          <div class="message-text">
+            <div class="message-sender">
+              <b>AI Chatbot</b>
+            </div>
+            <div class="message-content">
+              Hi {{user.username}}, I am your AI Chatbot, you can ask me anything.
+            </div>
+          </div>
+        </li> -->
+
+        {% if user.is_authenticated %} <!-- If the current user is authenticated/registered their previous messages/chats will be pulled from the database -->
+          {% for chat in chats %}
+            {% if chat.user == request.user %}
+
+              <li class="message sent">
+            <div class="message-text">
+              <div class="message-sender">
+                <b>You</b>
+              </div>
+              <div class="message-content">
+                {{chat.message}}
+              </div>
+            </div>
+          </li>
+
+          <li class="message received">
+            <div class="message-text">
+              <div class="message-sender">
+                <b>AI Chatbot</b>
+              </div>
+              <div class="message-content">
+                {{chat.response}}
+              </div>
+            </div>
+          </li>
+
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+        
+      </ul>
+      
+    </div>
+    <br><br>
+    <br><br>
+    <br><br>
+  </div>
+  <form class="message-form"> <!-- Forms allow users to input data -->
+    {%csrf_token%} <!--  Django implements CSRF protection, which involves generating a unique token for each user session and 
+      ensuring that any form submissions include this token. This way, the server can verify that the request comes from the 
+      same site and user that originally requested the form.When the form is submitted, the CSRF token is included in the request, 
+      allowing the server to validate the request's authenticity and protect against CSRF attacks. -->
+    <div class="input-group">
+      <input type="text" class="form-control message-input" placeholder="Type your message..."> <!--- Where the user will input their message to the ai -->
+      <div class="input-group-append">
+        <button type="submit" class="btn btn-primary btn-send">Send</button>
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+  const messagesList = document.querySelector('.messages-list');
+  const messageForm = document.querySelector('.message-form');
+  const messageInput = document.querySelector('.message-input');
+
+  messageForm.addEventListener('submit', (event) => {
+    event.preventDefault(); /* Prevents the page from refreshing, the default action that happens when you submit is the page refreshes */
+
+    const message = messageInput.value.trim(); /* Grabs the value from the "messageInput" field, in this case the actual message itself 
+    and trims any trailing whitespace */
+    if (message.length === 0) {
+      return; /* If the "messageInput" field is empty the event listener ends here */
+    }
+
+    const messageItem = document.createElement('li');
+    messageItem.classList.add('message', 'sent');
+    messageItem.innerHTML = `
+        <div class="message-text">
+            <div class="message-sender">
+                <b>You</b>
+            </div>
+            <div class="message-content">
+                ${message}
+            </div>
+        </div>`;
+    messagesList.appendChild(messageItem); /* Adds the message sent to where the chat is displayed on the website */
+
+    messageInput.value = '';
+
+    fetch('', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, /* Telling fetch what type of data you are sending */
+      body: new URLSearchParams({
+        'csrfmiddlewaretoken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+        'message': message /* Data we are sending to the server */
+      })
+    })
+      .then(response => response.json()) /* Converts the response to a JSON format in order for the data to be readable */
+      .then(data => { /* represents the JSON data parsed from the response body (the data sent back from the server). */
+        const response = data.response; /* Stores the response portion of the data sent back from the server */
+        const messageItem = document.createElement('li');
+        messageItem.classList.add('message', 'received');
+        messageItem.innerHTML = `
+        <div class="message-text">
+            <div class="message-sender">
+              <b>AI Chatbot</b>
+            </div>
+            <div class="message-content">
+                ${response}
+            </div>
+        </div>
+          `;
+        messagesList.appendChild(messageItem); /* Adds the respsonse to where the chat is displayed on the website */
+      });
+  });
+
+</script>
+{% endblock %}
